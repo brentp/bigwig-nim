@@ -1,2 +1,5 @@
 nimcache/
 tests/test_read
+tests/test_write
+tests/all
+tests/writer.bw

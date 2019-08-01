@@ -29,13 +29,16 @@ proc close*(bw: BigWig) =
 proc destroy_bigwig(bw: BigWig) =
   bw.close
 
-proc open*(bw: var BigWig, path: string, mode: FileMode=fmRead): bool =
-  ## open the bigwig file
+proc open*(bw: var BigWig, path: string, mode: FileMode=fmRead, maxZooms:int=8): bool =
+  ## open the bigwig file. maxZooms is only used when opening in write mode.
   var fmode: string
   new(bw, destroy_bigwig)
   if mode == fmRead: fmode = "r" elif mode == fmWrite: fmode = "w" elif mode == fmAppend: fmode = "a"
   bw = BigWig(bw: bwOpen(path, nil, fmode), path: path)
-  return bw.bw != nil
+  if bw.bw == nil: return false
+  result = true
+  if mode  == fmWrite:
+    result = 0 == bw.bw.bwCreateHdr(maxZooms.int32)
 
 type CPtr[T] = ptr UncheckedArray[T]
 
@@ -89,3 +92,21 @@ proc stats*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1, stat:Stat=
   result = newSeqUninitialized[float64](nBins)
   copyMem(result[0].addr, st, nBins * sizeof(float64))
   c_free(st)
+
+proc setHeader*(bw:BigWig, header:BigWigHeader) =
+  ## set the header of a bigwig file opened for writing
+  var nimChroms = newSeq[string](header.len)
+  var lens = newSeq[uint32](header.len)
+  for i, c in header:
+    nimChroms[i] = c.name
+    lens[i] = c.length.uint32
+  var chroms = allocCStringArray(nimChroms)
+  bw.bw.cl = bwCreateChromList(chroms, lens[0].addr, header.len.int64)
+  doAssert bw.bw.cl != nil, "[bigwig] error creating header"
+
+proc writeHeader*(bw:BigWig, header:BigWigHeader) =
+  ## write the header (which must have been added in `setHeader` to file.
+  doAssert bw.bw.cl != nil, "[bigwig] attempted to call writeHeader on empty header; use setHeader first"
+  doAssert 0 == bw.bw.bwWriteHdr
+
+

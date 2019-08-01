@@ -29,7 +29,7 @@ skipDirs = @["tests"]
 import ospaths,strutils
 
 task test, "run the tests":
-  exec "nim c --lineDir:on --debuginfo -r --threads:on tests/test_read"
+  exec "nim c --lineDir:on --debuginfo -r --threads:on tests/all"
 
 task docs, "Builds documentation":
   mkDir("docs"/"bigwig")
