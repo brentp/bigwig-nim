@@ -50,3 +50,8 @@ suite "test reading":
     check mins[1] ~~ 0.2
     check mins[2] ~~ 0.3
     check $mins[3] == "nan"
+
+  test "header":
+    var bw: BigWig
+    check true == open(bw, "tests/test.bw")
+    check bw.header == @[(name: "1", length: 195471971, tid: 0'u32), (name: "10", length: 130694993, tid: 1'u32)]

@@ -21,5 +21,7 @@ var m: seq[float32] = bw.stats("chr2", 999, 9999, stat=Stat.mean)
 # multiple bins:
 var L: seq[float32] = bw.stats("chr2", 999, 9999, stat=Stat.min, nBins=10)
 
+echo bw.header # @[(name: "1", length: 195471971, tid: 0'u32), (name: "10", length: 130694993, tid: 1'u32)]
+
 bw.close
 ```

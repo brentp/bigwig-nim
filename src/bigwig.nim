@@ -7,6 +7,7 @@ type BigWig* = ref object
   bw : ptr bigWigFile_t
   path: string
 
+type BigWigHeader* = seq[tuple[name: string, length: int, tid: uint32]]
 
 type Stat* {.pure.} = enum
     #doesNotExist = -1 #!< This does nothing */
@@ -44,6 +45,13 @@ proc get_stop(bw: var BigWig, chrom: string, stop:int): int {.inline.} =
   if tid == uint32.high:
     raise newException(KeyError, "[bigwig] unknown chromosome:" & chrom)
   result = cast[CPtr[uint32]](bw.bw.cl.len)[tid].int
+
+proc header*(bw: var BigWig): BigWigHeader =
+  result = newSeq[tuple[name: string, length: int, tid:uint32]](bw.bw.cl.nKeys)
+  var lens = cast[CPtr[uint32]](bw.bw.cl.len)
+  var names = cast[cstringArray](bw.bw.cl.chrom)
+  for i in 0..<bw.bw.cl.nKeys:
+    result[i] = ($names[i], lens[i].int, i.uint32)
 
 proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1, includeNA:bool=true) =
   ## exctract values for the given range into `values`
