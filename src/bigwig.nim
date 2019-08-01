@@ -1,11 +1,19 @@
 import nimbigwig/bigWig
-import os
 
 import ./bigwigpkg/version
+export version
 
 type BigWig* = ref object
   bw : ptr bigWigFile_t
   path: string
+
+  # these are internal, re-used cache before sending
+  # to get data in format for bw from more common format
+  starts: seq[uint32]
+  stops: seq[uint32]
+  values: seq[float32]
+  cs: cstringArray
+
 
 type BigWigHeader* = seq[tuple[name: string, length: int, tid: uint32]]
 
@@ -25,6 +33,9 @@ proc close*(bw: BigWig) =
   if bw.bw != nil:
     bwClose(bw.bw)
     bw.bw = nil
+  if bw.cs != nil:
+    deallocCStringArray(bw.cs)
+    bw.cs = nil
 
 proc destroy_bigwig(bw: BigWig) =
   bw.close
@@ -39,6 +50,7 @@ proc open*(bw: var BigWig, path: string, mode: FileMode=fmRead, maxZooms:int=8):
   result = true
   if mode  == fmWrite:
     result = 0 == bw.bw.bwCreateHdr(maxZooms.int32)
+    bw.cs = allocCStringArray(@[""])
 
 type CPtr[T] = ptr UncheckedArray[T]
 
@@ -104,9 +116,50 @@ proc setHeader*(bw:BigWig, header:BigWigHeader) =
   bw.bw.cl = bwCreateChromList(chroms, lens[0].addr, header.len.int64)
   doAssert bw.bw.cl != nil, "[bigwig] error creating header"
 
-proc writeHeader*(bw:BigWig, header:BigWigHeader) =
+proc writeHeader*(bw:BigWig) =
   ## write the header (which must have been added in `setHeader` to file.
   doAssert bw.bw.cl != nil, "[bigwig] attempted to call writeHeader on empty header; use setHeader first"
   doAssert 0 == bw.bw.bwWriteHdr
 
+template setLens(bw:BigWig, L:int) =
+  bw.starts.setLen(L)
+  bw.stops.setLen(L)
+  bw.values.setLen(L)
 
+proc add*[T: int|uint32|uint64|int32|int64](bw:BigWig, chrom: string, intervals: seq[tuple[start:T, stop: T, value: float32]]) =
+  ## add intervals to the bigwig.
+  if intervals.len == 0: return
+  bw.setLens(intervals.len)
+
+  for i, iv in intervals:
+    bw.starts[i] = iv.start.uint32
+    bw.stops[i] = iv.stop.uint32
+    bw.values[i] = iv.value
+
+  bw.cs[0] = chrom.cstring
+  doAssert 0 == bw.bw.bwAddIntervals(bw.cs, bw.starts[0].addr, bw.stops[0].addr, bw.values[0].addr, 1'u32), "[bigwig] error adding intervals"
+
+  if intervals.len > 0:
+    doAssert 0 == bw.bw.bwAppendIntervals(bw.starts[1].addr, bw.stops[1].addr, bw.values[1].addr, intervals.high.uint32), "[bigwig] error appending intervals"
+
+
+proc add*[T: int|uint32|uint64|int32|int64, U: int|uint32|uint64|int32|int64](bw:BigWig, chrom: string, span: U, intervals: seq[tuple[start:T, value: float32]]) =
+  ## add spans to the bigwig. this adds fixed-length (span) intervals starting at the given positions.
+  if intervals.len == 0: return
+  bw.setLens(intervals.len)
+
+  for i, iv in intervals:
+    bw.starts[i] = iv.start.uint32
+    bw.values[i] = iv.value
+
+  doAssert 0 == bw.bw.bwAddIntervalSpans(chrom.cstring, bw.starts[0].addr, span.uint32, bw.values[0].addr, 1'u32), "[bigwig] error adding interval spans"
+  if intervals.len > 0:
+    doAssert 0 == bw.bw.bwAppendIntervalSpans(bw.starts[1].addr, bw.values[1].addr, intervals.high.uint32), "[bigwig] error appending interval spans"
+
+proc add*(bw:BigWig, chrom:string, start: uint32, values: var seq[float32], step:uint32=1, span:uint32=1) =
+  ## add values to the bigwig starting at start and stepping by step.
+  ## this is the most efficient way (space and performance) to add to a bigwig file if your intervals match this format.
+  if values.len == 0: return
+  doAssert 0 == bw.bw.bwAddIntervalSpanSteps(chrom, start, span, step, values[0].addr, 1)
+  if values.len > 0:
+    doAssert 0 == bw.bw.bwAppendIntervalSpanSteps(values[1].addr, values.high.uint32)
