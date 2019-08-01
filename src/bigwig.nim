@@ -45,7 +45,7 @@ proc get_stop(bw: var BigWig, chrom: string, stop:int): int {.inline.} =
     raise newException(KeyError, "[bigwig] unknown chromosome:" & chrom)
   result = cast[CPtr[uint32]](bw.bw.cl.len)[tid].int
 
-proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1, includeNA:bool=false) =
+proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1, includeNA:bool=true) =
   ## exctract values for the given range into `values`
   var stop = bw.get_stop(chrom, stop)
   var ivs = bwGetValues(bw.bw, chrom, start.uint32, stop.uint32, includeNA.cint)
@@ -70,5 +70,14 @@ iterator intervals*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): t
         yield (starts[i].int, stops[i].int, values[i])
 
     it = bwIteratorNext(it)
-
   it.bwIteratorDestroy
+
+proc c_free(p: pointer) {.
+  importc: "free", header: "<stdlib.h>".}
+
+proc stats*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1, stat:Stat=Stat.mean, nBins=1): seq[float64] =
+  var stop = bw.get_stop(chrom, stop)
+  var st = bw.bw.bwStats(chrom, start.uint32, stop.uint32, nBins.uint32, stat.int.bwStatsType)
+  result = newSeqUninitialized[float64](nBins)
+  copyMem(result[0].addr, st, nBins * sizeof(float64))
+  c_free(st)
