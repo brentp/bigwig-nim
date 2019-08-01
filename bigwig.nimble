@@ -31,12 +31,12 @@ import ospaths,strutils
 task test, "run the tests":
   exec "nim c --lineDir:on --debuginfo -r --threads:on tests/test_read"
 
-#[
 task docs, "Builds documentation":
-  mkDir("docs"/"slivar")
-  for file in listfiles("src/slivar"):
+  mkDir("docs"/"bigwig")
+  var file = "src/bigwig.nim"
+  exec "nim doc2 --verbosity:0 --hints:off -o:" & "docs" /../ file.changefileext("html").split("/", 1)[1] & " " & file
+  for file in listfiles("src/bigwig"):
     if file.endswith("value.nim"): continue
     if splitfile(file).ext == ".nim":
       exec "nim doc2 --verbosity:0 --hints:off -o:" & "docs" /../ file.changefileext("html").split("/", 1)[1] & " " & file
 
-]#
