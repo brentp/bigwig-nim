@@ -55,3 +55,16 @@ suite "test reading":
     var bw: BigWig
     check true == open(bw, "tests/test.bw")
     check bw.header == @[(name: "1", length: 195471971, tid: 0'u32), (name: "10", length: 130694993, tid: 1'u32)]
+    check bw.SQL.len == 0
+
+suite "bigbed suite":
+
+  test "that bigbed reading works":
+    var bw: BigWig
+    check true == open(bw, "tests/bigBedExample.bb")
+    check bw.header.len == 1
+
+    for iv in bw.entries("chr21"):
+      check iv.start > 0
+
+    echo bw.SQL

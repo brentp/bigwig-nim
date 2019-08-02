@@ -6,6 +6,7 @@ export version
 type BigWig* = ref object
   bw : ptr bigWigFile_t
   path: string
+  isBigBed: bool
 
   # these are internal, re-used cache before sending
   # to get data in format for bw from more common format
@@ -14,6 +15,8 @@ type BigWig* = ref object
   values: seq[float32]
   cs: cstringArray
 
+proc c_free(p: pointer) {.
+  importc: "free", header: "<stdlib.h>".}
 
 type BigWigHeader* = seq[tuple[name: string, length: int, tid: uint32]]
 
@@ -45,7 +48,10 @@ proc open*(bw: var BigWig, path: string, mode: FileMode=fmRead, maxZooms:int=8):
   var fmode: string
   new(bw, destroy_bigwig)
   if mode == fmRead: fmode = "r" elif mode == fmWrite: fmode = "w" elif mode == fmAppend: fmode = "a"
-  bw = BigWig(bw: bwOpen(path, nil, fmode), path: path)
+  if mode == fmRead and bbIsBigBed(path, nil) == 1:
+    bw = BigWig(bw: bbOpen(path, nil), path: path, isBigBed: true)
+  else:
+    bw = BigWig(bw: bwOpen(path, nil, fmode), path: path)
   if bw.bw == nil: return false
   result = true
   if mode  == fmWrite:
@@ -53,6 +59,12 @@ proc open*(bw: var BigWig, path: string, mode: FileMode=fmRead, maxZooms:int=8):
     bw.cs = allocCStringArray(@[""])
 
 type CPtr[T] = ptr UncheckedArray[T]
+
+proc SQL*(bw: BigWig): string =
+  # return any SQL associated with a bigbed file; this 
+  var cs = bbGetSQL(bw.bw)
+  result = $cs
+  c_free(cs)
 
 proc get_stop(bw: var BigWig, chrom: string, stop:int): int {.inline.} =
   if stop >= 0 : return stop
@@ -76,6 +88,21 @@ proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=
   copyMem(values[0].addr, ivs.value, sizeof(values[0]) * ivs.l.int)
   ivs.bwDestroyOverlappingIntervals()
 
+
+iterator entries*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): tuple[start: int, stop: int, value: cstring] =
+  ## yield bigbed entries. any values is returned as a string
+  var stop = bw.get_stop(chrom, stop)
+  var it = bbOverlappingEntriesIterator(bw.bw, chrom, start.uint32, stop.uint32, 0.cint, 1000)
+  while it.data != nil:
+    let starts = cast[CPtr[uint32]](it.entries.start)
+    let stops = cast[CPtr[uint32]](it.entries.end)
+    for i in 0..<it.entries.l:
+      yield (starts[i].int, stops[i].int, if it.entries.str != nil: cast[cstringArray](it.entries.str)[i] else: nil)
+
+    it = bwIteratorNext(it)
+  it.bwIteratorDestroy
+
+
 iterator intervals*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): tuple[start: int, stop: int, value: float32] =
   ## iterate over the values in the given region
   var stop = bw.get_stop(chrom, stop)
@@ -93,10 +120,8 @@ iterator intervals*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): t
         yield (starts[i].int, stops[i].int, values[i])
 
     it = bwIteratorNext(it)
-  it.bwIteratorDestroy
 
-proc c_free(p: pointer) {.
-  importc: "free", header: "<stdlib.h>".}
+  it.bwIteratorDestroy
 
 proc stats*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1, stat:Stat=Stat.mean, nBins=1): seq[float64] =
   var stop = bw.get_stop(chrom, stop)
@@ -115,6 +140,7 @@ proc setHeader*(bw:BigWig, header:BigWigHeader) =
   var chroms = allocCStringArray(nimChroms)
   bw.bw.cl = bwCreateChromList(chroms, lens[0].addr, header.len.int64)
   doAssert bw.bw.cl != nil, "[bigwig] error creating header"
+  deallocCStringArray(chroms)
 
 proc writeHeader*(bw:BigWig) =
   ## write the header (which must have been added in `setHeader` to file.
