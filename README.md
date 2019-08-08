@@ -13,7 +13,12 @@ var values: seq[float32]
 bw.values(values, "chr1", 0, 2222)
 
 for iv in bw.intervals("chr2", 999, 88888): # iterator.
-    ## tuple[start: int, stop: int, value: float32]
+  # tuple[start: int, stop: int, value: float32]
+
+# for bigbed
+for iv in bw.entries("chr2", 999, 88888): # iterator.
+  # tuple[start: int, stop: int, value: cstring]
+  # value contains "SQL" for bigbed entry.
 
 # single value
 var m: seq[float32] = bw.stats("chr2", 999, 9999, stat=Stat.mean)

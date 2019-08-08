@@ -31,6 +31,10 @@ type Stat* {.pure.} = enum
     # The sum of per-base values */
     sum = 5
 
+template isBigBed*(b:BigWig): bool =
+  ## indicate wether file is BigBed (true) or BigWig (false)
+  b.isBigBed
+
 proc close*(bw: BigWig) =
   ## close the file and free up resources
   if bw.bw != nil:

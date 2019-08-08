@@ -9,6 +9,7 @@ suite "test reading":
   test "that missing file returns false":
     var bw: BigWig
     check false == open(bw, "xxxxxx.bw")
+    bw.close
 
   test "that reading values works":
     var bw: BigWig
@@ -20,6 +21,7 @@ suite "test reading":
     check values[1] ~~ 0.2
     check values[2] ~~ 0.3
     check $values[3] == "nan"
+    bw.close
 
   test "that interval iteration works":
     var bw: BigWig
@@ -35,7 +37,13 @@ suite "test reading":
     for iv in bw.intervals("1"):
       check iv == expect[i]
       i += 1
+    bw.close
 
+  test "that isBedBed is false for bigwig":
+    var bw: BigWig
+    check true == open(bw, "tests/test.bw")
+    check not bw.isBigBed
+    #bw.close
 
   test "that stats work":
     var bw: BigWig
@@ -50,6 +58,7 @@ suite "test reading":
     check mins[1] ~~ 0.2
     check mins[2] ~~ 0.3
     check $mins[3] == "nan"
+    bw.close
 
   test "header":
     var bw: BigWig
@@ -68,3 +77,6 @@ suite "bigbed suite":
       check iv.start > 0
 
     echo bw.SQL
+
+    check bw.isBigBed
+
