@@ -3,3 +3,5 @@ tests/test_read
 tests/test_write
 tests/all
 tests/writer.bw
+bigwig
+src/bigwigpkg/cli
