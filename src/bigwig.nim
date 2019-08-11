@@ -1,4 +1,5 @@
 import nimbigwig/bigWig
+export bbIsBigBed, bwIsBigWig
 
 import ./bigwigpkg/version
 export version
@@ -65,7 +66,8 @@ proc open*(bw: var BigWig, path: string, mode: FileMode=fmRead, maxZooms:int=8):
 type CPtr[T] = ptr UncheckedArray[T]
 
 proc SQL*(bw: BigWig): string =
-  # return any SQL associated with a bigbed file; this 
+  # return any SQL associated with a bigbed file; this can be used to parse the
+  # extra columns in bigbed
   var cs = bbGetSQL(bw.bw)
   result = $cs
   c_free(cs)
@@ -169,7 +171,7 @@ proc add*[T: int|uint32|uint64|int32|int64](bw:BigWig, chrom: string, intervals:
   bw.cs[0] = chrom.cstring
   doAssert 0 == bw.bw.bwAddIntervals(bw.cs, bw.starts[0].addr, bw.stops[0].addr, bw.values[0].addr, 1'u32), "[bigwig] error adding intervals"
 
-  if intervals.len > 0:
+  if intervals.len > 1:
     doAssert 0 == bw.bw.bwAppendIntervals(bw.starts[1].addr, bw.stops[1].addr, bw.values[1].addr, intervals.high.uint32), "[bigwig] error appending intervals"
 
 
@@ -183,7 +185,7 @@ proc add*[T: int|uint32|uint64|int32|int64, U: int|uint32|uint64|int32|int64](bw
     bw.values[i] = iv.value
 
   doAssert 0 == bw.bw.bwAddIntervalSpans(chrom.cstring, bw.starts[0].addr, span.uint32, bw.values[0].addr, 1'u32), "[bigwig] error adding interval spans"
-  if intervals.len > 0:
+  if intervals.len > 1:
     doAssert 0 == bw.bw.bwAppendIntervalSpans(bw.starts[1].addr, bw.values[1].addr, intervals.high.uint32), "[bigwig] error appending interval spans"
 
 proc add*(bw:BigWig, chrom:string, start: uint32, values: var seq[float32], step:uint32=1, span:uint32=1) =
@@ -191,5 +193,5 @@ proc add*(bw:BigWig, chrom:string, start: uint32, values: var seq[float32], step
   ## this is the most efficient way (space and performance) to add to a bigwig file if your intervals match this format.
   if values.len == 0: return
   doAssert 0 == bw.bw.bwAddIntervalSpanSteps(chrom, start, span, step, values[0].addr, 1)
-  if values.len > 0:
+  if values.len > 1:
     doAssert 0 == bw.bw.bwAppendIntervalSpanSteps(values[1].addr, values.high.uint32)
