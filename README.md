@@ -40,10 +40,10 @@ wtr.setHeader(@[(name:"chr1", length: 2000, tid: 0'u32)])
 wtr.writeHeader
 
 # add intervals with tuples
-wtr.add("chr1", 100, @[(start: 22, stop: 33, value: 0.01'f32), (start: 44, stop: 55, value: 155'f32)])
+wtr.add("chr1", @[(start: 22, stop: 33, value: 0.01'f32), (start: 44, stop: 55, value: 155'f32)])
 
-# or with, for example a span of 10 bases:
-wtr.add("chr1", 10, @[(start: 20, value: 0.01'f32), (start: 30, value: 155'f32)])
+# or with, for example a span of 15 bases:
+wtr.add("chr1", 15, @[(start: 20, value: 0.01'f32), (start: 30, value: 155'f32)])
 
 # or an array of values with a given span and step:
 var values = @[0.1'f32, 0.2, 0.3, 0.4]
