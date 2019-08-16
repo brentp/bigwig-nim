@@ -1,8 +1,8 @@
 import argparse
 import strutils
+import tables
 import strformat
-import os
-import ../bigwig
+import ./lib
 
 type region = tuple[chrom: string, start: int, stop: int]
 
@@ -130,6 +130,56 @@ proc write_from(ofh:var BigWig, bed_path: string, value_column: int, chunksize:i
 proc isBig(path: string): bool =
   return bwIsBigWig(path, nil) == 1 or bbIsBigBed(path, nil) == 1
 
+proc stats_main*() =
+  var p = newParser("bigwig view"):
+    option("-s", "--stat", choices= @["mean", "coverage", "min", "max", "sum", "header"], default="mean", help="statistic to output. 'header' will show the chromosomes and lengths in the given bigwig.")
+    option("--bins", default="1", help="integer number of bins")
+    arg("input", nargs=1)
+    arg("region", nargs=1, help="chromosome, or chrom:start-stop region to extract stats")
+
+  var args = commandLineParams()
+  if len(args) > 0 and args[0] == "stats":
+    args = args[1..args.high]
+  if len(args) == 0: args = @["--help"]
+
+  try:
+    discard p.parse(args)
+  except UsageError:
+    echo p.help
+    echo "error:", getCurrentExceptionMsg()
+    quit 1
+  let opts = p.parse(args)
+  if opts.help:
+    quit 0
+
+  var bw: BigWig
+  if not bw.open(opts.input):
+    quit "[bigwig] unable to open input file"
+  defer:
+    bw.close
+
+  if opts.stat == "header":
+    echo "#chrom\tlength"
+    for h in bw.header:
+      echo &"{h.name}\t{h.length}"
+    quit 0
+
+  var L = {"mean": Stat.mean, "coverage": Stat.coverage, "min": Stat.min, "max": Stat.max, "sum": Stat.sum}.toTable
+  var stat = L[opts.stat]
+  var bins = parseInt(opts.bins)
+
+  try:
+    var region = opts.region.parse_region
+    var st = bw.stats(region.chrom, region.start, region.stop, stat=stat, nBins=bins)
+    for v in st:
+      var vs = format_float(v, ffDecimal, precision=5)
+      vs = vs.strip(leading=false, chars={'0'})
+      if vs[vs.high] == '.': vs &= '0'
+      echo vs
+  except:
+    echo "error:", getCurrentExceptionMsg()
+    quit 1
+
 proc view_main*() =
 
   var p = newParser("bigwig view"):
@@ -141,15 +191,15 @@ proc view_main*() =
     arg("input", nargs=1)
 
   var args = commandLineParams()
-  if len(args) == 0: args = @["--help"]
-  if args[0] == "view":
+  if len(args) > 0 and args[0] == "view":
     args = args[1..args.high]
+  if len(args) == 0: args = @["--help"]
 
   let opts = p.parse(args)
   if opts.help:
     quit 0
   if opts.input == "":
-    # TODO: check for stdin
+    # TODO: check for stdin (can't get libbigwig to open stdin)
     echo p.help
     echo "[bigwig] input file is required"
     quit 2
@@ -213,7 +263,3 @@ proc view_main*() =
     ofh.writeHeader
     ofh.write_from(opts.input, parseInt(opts.value_column))
     ofh.close
-
-
-when isMainModule:
-  view_main()
