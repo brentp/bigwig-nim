@@ -1,8 +1,8 @@
-import argparse
 import strutils
 import tables
 import strformat
 import ./lib
+import argparse
 
 type region = tuple[chrom: string, start: int, stop: int]
 

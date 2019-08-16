@@ -1,7 +1,7 @@
 import nimbigwig/bigWig
 export bbIsBigBed, bwIsBigWig
 
-import ./bigwigpkg/version
+import ./version
 export version
 
 type BigWig* = ref object

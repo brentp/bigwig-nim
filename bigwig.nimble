@@ -18,7 +18,7 @@ license       = "MIT"
 
 # Dependencies
 
-requires "nimbigwig"
+requires "nimbigwig", "argparse"
 srcDir = "src"
 installExt = @["nim"]
 
