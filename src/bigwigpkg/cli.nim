@@ -54,6 +54,7 @@ iterator chunks(bed_path: string, chrom: var string, n:int=2048, value_column: i
   let col = value_column - 1
 
   var cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
+  # TODO: support gzipped as well.
   for l in bed_path.lines:
     let toks = l.strip.split('\t')
     if toks[0] != chrom and cache.len > 0:
@@ -62,6 +63,13 @@ iterator chunks(bed_path: string, chrom: var string, n:int=2048, value_column: i
 
     chrom = toks[0]
     var iv = make_interval(toks, col)
+    # split on large chunks of 0 bases.
+    if iv.value == 0 and iv.stop - iv.start > 9998 and (cache.len == 0 or iv.stop - iv.start != cache[cache.high].stop - cache[cache.high].start):
+      if cache.len > 0:
+        yield cache
+        cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
+      yield @[iv]
+      continue
 
     cache.add(iv)
     if cache.len == n:
@@ -80,16 +88,16 @@ proc looks_like_single_base(chunk: chunk): bool =
   var last_stop = chunk[0].start
   var total_bases = 0
   for c in chunk:
-    nsmall += int(c.stop - c.start <  10)
+    nsmall += int(c.stop - c.start <  30)
     if last_stop > c.start: return false
     nskip += c.start - last_stop
     last_stop = c.stop
     total_bases += c.stop - c.start
 
-  return nsmall.float32 / n > 0.85 and nskip == 0
+  return nsmall.float32 / n > 0.60 and nskip == 0
 
 proc looks_like_fixed_span(chunk: chunk): bool =
-  if chunk.len < 2: return false
+  if chunk.len < 1: return false
   var sp = chunk[0].stop - chunk[0].start
   result = true
   for i, c in chunk:
@@ -123,6 +131,8 @@ proc write_from(ofh:var BigWig, bed_path: string, value_column: int, chunksize:i
   ## representation might be
   var chrom: string
   for chunk in bed_path.chunks(chrom, n=chunksize, value_column=value_column):
+    #echo chunk[0..<min(chunk.len, 4)]
+    #echo ""
     if chunk.looks_like_single_base:
       ofh.write_single_base(chunk, chrom)
     elif chunk.looks_like_fixed_span:
