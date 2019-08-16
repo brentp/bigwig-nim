@@ -24,11 +24,14 @@ proc from_fai(path: string): BigWigHeader =
     let vals = l.strip().split('\t')
     result.add((name: vals[0], length: parseInt(vals[1]), tid: result.len.uint32))
 
+proc ffloat(f:float, precision:int=5): string =
+  result = format_float(f, ffDecimal, precision=precision)
+  result = result.strip(leading=false, chars={'0'})
+  if result[result.high] == '.': result &= '0'
+
 proc write_region_from(ofh:File, bw:var BigWig, reg:region) =
   for iv in bw.intervals(reg.chrom, reg.start, reg.stop):
-    var v = format_float(iv.value, ffDecimal, precision=5)
-    v = v.strip(leading=false, chars={'0'})
-    if v[v.high] == '.': v &= '0'
+    var v = ffloat(iv.value, precision=5)
     ofh.write_line(&"{reg.chrom}\t{iv.start}\t{iv.stop}\t{v}")
 
 type chunk = seq[tuple[start: int, stop:int, value:float32]]
@@ -132,7 +135,7 @@ proc isBig(path: string): bool =
 
 proc stats_main*() =
   var p = newParser("bigwig view"):
-    option("-s", "--stat", choices= @["mean", "coverage", "min", "max", "sum", "header"], default="mean", help="statistic to output. 'header' will show the chromosomes and lengths in the given bigwig.")
+    option("-s", "--stat", choices= @["mean", "coverage", "min", "max", "sum", "header"], default="mean", help="statistic to output. 'header' will show the lengths, mean and coverage for each chromosome in the bigwig.")
     option("--bins", default="1", help="integer number of bins")
     arg("input", nargs=1)
     arg("region", nargs=1, help="chromosome, or chrom:start-stop region to extract stats")
@@ -147,6 +150,7 @@ proc stats_main*() =
   except UsageError:
     echo p.help
     echo "error:", getCurrentExceptionMsg()
+    echo "specify a dummy region, even for --stat header"
     quit 1
   let opts = p.parse(args)
   if opts.help:
@@ -159,10 +163,16 @@ proc stats_main*() =
     bw.close
 
   if opts.stat == "header":
-    echo "#chrom\tlength"
+    echo "#chrom\tlength\tmean_depth\tcoverage"
     for h in bw.header:
-      echo &"{h.name}\t{h.length}"
+      var m = bw.stats(h.name, 0, h.length, stat=Stat.mean, nBins=1)
+      var c = bw.stats(h.name, 0, h.length, stat=Stat.coverage, nBins=1)
+      echo &"{h.name}\t{h.length}\t{ffloat(m[0])}\t{ffloat(c[0], 8)}"
     quit 0
+
+  if opts.region == "":
+    echo p.help
+    quit "error: region is required"
 
   var L = {"mean": Stat.mean, "coverage": Stat.coverage, "min": Stat.min, "max": Stat.max, "sum": Stat.sum}.toTable
   var stat = L[opts.stat]
@@ -172,10 +182,7 @@ proc stats_main*() =
     var region = opts.region.parse_region
     var st = bw.stats(region.chrom, region.start, region.stop, stat=stat, nBins=bins)
     for v in st:
-      var vs = format_float(v, ffDecimal, precision=5)
-      vs = vs.strip(leading=false, chars={'0'})
-      if vs[vs.high] == '.': vs &= '0'
-      echo vs
+      echo ffloat(v)
   except:
     echo "error:", getCurrentExceptionMsg()
     quit 1
