@@ -64,7 +64,7 @@ iterator chunks(bed_path: string, chrom: var string, n:int=2048, value_column: i
     chrom = toks[0]
     var iv = make_interval(toks, col)
     # split on large chunks of 0 bases.
-    if iv.value == 0 and iv.stop - iv.start > 9998 and (cache.len == 0 or iv.stop - iv.start != cache[cache.high].stop - cache[cache.high].start):
+    if iv.value == 0 and iv.stop - iv.start > 100 and (cache.len == 0 or iv.stop - iv.start != cache[cache.high].stop - cache[cache.high].start):
       if cache.len > 0:
         yield cache
         cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
@@ -79,7 +79,6 @@ iterator chunks(bed_path: string, chrom: var string, n:int=2048, value_column: i
   if cache.len != 0:
     yield cache
 
-
 proc looks_like_single_base(chunk: chunk): bool =
   var n = chunk.len.float32
   if chunk.len < 2: return false
@@ -88,32 +87,47 @@ proc looks_like_single_base(chunk: chunk): bool =
   var last_stop = chunk[0].start
   var total_bases = 0
   for c in chunk:
-    nsmall += int(c.stop - c.start <  30)
+    nsmall += int(c.stop - c.start < 8)
     if last_stop > c.start: return false
     nskip += c.start - last_stop
     last_stop = c.stop
     total_bases += c.stop - c.start
 
-  return nsmall.float32 / n > 0.60 and nskip == 0
+  return nsmall.float32 / n > 0.95 and nskip == 0
 
 proc looks_like_fixed_span(chunk: chunk): bool =
-  if chunk.len < 1: return false
+  if chunk.len < 2: return false
   var sp = chunk[0].stop - chunk[0].start
   result = true
   for i, c in chunk:
     if likely(i < chunk.high) and c.stop - c.start != sp: return false
 
 proc write_fixed_span(ofh: var BigWig, chunk:chunk, chrom: string, span:int) =
-  var values = newSeqOfCap[float32](4096)
+  var values = newSeqOfCap[float32](chunk.len)
+
+  # check for end of chrom
+  let end_of_chrom = chunk.len > 1 and chunk[chunk.high].stop - chunk[chunk.high].start < span
+
+
   for c in chunk:
-    for s in c.start..c.stop:
+    for s in countup(c.start, c.stop - 1, span):
       values.add(c.value)
-  ofh.add(chrom, chunk[0].start.uint32, values, span=span.uint32)
+
+  let eoc_val = values[values.high]
+  let eoc_start = chunk[chunk.high].start
+  let eoc_stop = chunk[chunk.high].stop
+
+  if end_of_chrom:
+    values.setLen(values.high)
+  ofh.add(chrom, chunk[0].start.uint32, values, span=span.uint32, step=span.uint32)
+  if end_of_chrom:
+    # intervals: seq[tuple[start:T, stop: T, value: float32]]
+    ofh.add(chrom, @[(start: eoc_start.uint32, stop: eoc_stop.uint32, value: eoc_val)])
 
 proc write_single_base(ofh: var BigWig, chunk:chunk, chrom: string) =
   ofh.write_fixed_span(chunk, chrom, 1)
 
-proc write_region_from(ofh:var BigWig, bw:var BigWig, reg:region, chunksize:int = 2048) =
+proc write_region_from(ofh:var BigWig, bw:var BigWig, reg:region, chunksize:int) =
   ## read from bw and write to ofh. try to do this efficiently
   ## read a chunk of a particular size and guess what the best bigwig
   ## representation might be
@@ -125,7 +139,7 @@ proc write_region_from(ofh:var BigWig, bw:var BigWig, reg:region, chunksize:int 
     else:
       ofh.add(reg.chrom, chunk)
 
-proc write_from(ofh:var BigWig, bed_path: string, value_column: int, chunksize:int = 2048) =
+proc write_from(ofh:var BigWig, bed_path: string, value_column: int, chunksize:int) =
   ## read from bw and write to ofh. try to do this efficiently
   ## read a chunk of a particular size and guess what the best bigwig
   ## representation might be
@@ -221,6 +235,7 @@ proc view_main*() =
     echo "[bigwig] input file is required"
     quit 2
 
+  let chunksize = 512
   if opts.input.isBig:
 
     var bw:BigWig
@@ -259,11 +274,11 @@ proc view_main*() =
       if opts.region == "":
         for chrom in bw.header:
           var reg: region = (chrom.name, 0, chrom.length)
-          ofh.write_region_from(bw, reg)
+          ofh.write_region_from(bw, reg, chunksize)
 
       else:
         var region = opts.region.parse_region
-        ofh.write_region_from(bw, region)
+        ofh.write_region_from(bw, region, chunksize)
 
       ofh.close
     bw.close
@@ -278,5 +293,5 @@ proc view_main*() =
       quit "[bigwig] couldn't open output bigwig file:" & opts.output_file
     ofh.setHeader(h)
     ofh.writeHeader
-    ofh.write_from(opts.input, parseInt(opts.value_column))
+    ofh.write_from(opts.input, parseInt(opts.value_column), chunksize)
     ofh.close
