@@ -18,7 +18,7 @@ license       = "MIT"
 
 # Dependencies
 
-requires "nimbigwig", "argparse"
+requires "nimbigwig", "argparse", "hts >= 0.2.20"
 srcDir = "src"
 installExt = @["nim"]
 

@@ -2,6 +2,7 @@ import strutils
 import tables
 import strformat
 import ./lib
+import hts/files
 import argparse
 
 type region = tuple[chrom: string, start: int, stop: int]
@@ -54,8 +55,7 @@ iterator chunks(bed_path: string, chrom: var string, n:int=2048, value_column: i
   let col = value_column - 1
 
   var cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
-  # TODO: support gzipped as well.
-  for l in bed_path.lines:
+  for l in bed_path.hts_lines:
     let toks = l.strip.split('\t')
     if toks[0] != chrom and cache.len > 0:
       yield cache
@@ -215,7 +215,7 @@ proc view_main*() =
 
   var p = newParser("bigwig view"):
     option("-r", "--region", help="optional chromosome, or chrom:start-stop region to view")
-    option("-f", "--fai", help="path to fai, only used for converting BED->BigWig")
+    option("-c", "--chrom-sizes", help="file indicating chromosome sizes (can be .fai), only used for converting BED->BigWig")
     option("-i", "--value-column", help="column-number (1-based) of the value to encode in to BigWig, only used for encoding BED->BigWig", default="4")
     option("-O", "--output-fmt", choices= @["bed", "bigwig"], default="bed", help="output format")
     option("-o", "--output-file", default="/dev/stdout", help="output bed or bigwig file")
@@ -283,11 +283,11 @@ proc view_main*() =
       ofh.close
     bw.close
   else:
-    if opts.fai == "":
-      quit "[bigwig] --fai is required when input is not bigwig."
+    if opts.chrom_sizes == "":
+      quit "[bigwig] --chrom-sizes is required when input is not bigwig."
     if opts.region != "":
       quit "[bigwig] --region is not supported for BED input"
-    var h = opts.fai.from_fai
+    var h = opts.chrom_sizes.from_fai
     var ofh: BigWig
     if  not ofh.open(opts.output_file, fmWrite):
       quit "[bigwig] couldn't open output bigwig file:" & opts.output_file
