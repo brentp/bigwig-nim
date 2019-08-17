@@ -4,8 +4,8 @@
 
 ## Command Line
 
-bigwig-nim includes a command-line tool distributed as a static binary. It supports converting
-bed to bigwig and bigwig to bed and extracting stats (mean, coverage, etc) for regions in a bigwig.
+bigwig-nim includes a command-line tool distributed as a static binary [here](https://github.com/brentp/bigwig-nim/releases/latest).
+It supports converting bed to bigwig and bigwig to bed and extracting stats (mean, coverage, etc) for regions in a bigwig.
 
 There are other tools to do this, including [kentTools](https://hgwdev.gi.ucsc.edu/~kent/src/) which has a more restrictive license and does not supported (b)gzipped input and [bwtools](https://github.com/CRG-Barcelona/bwtool) which seems to provide similar functionality (but I am not able to build it).
 
