@@ -1,4 +1,5 @@
 import ./bigwigpkg/lib
+import ./bigwigpkg/version
 import ./bigwigpkg/cli
 import tables
 import strformat
@@ -18,7 +19,7 @@ proc main*() =
   var args = commandLineParams()
 
   if len(args) == 0 or not (args[0] in dispatcher):
-    stderr.write_line "\nCommands: "
+    stderr.write_line &"version: {bigwigVersion}\n\nCommands:"
     for k, v in dispatcher:
       echo &"  {k:<13}:   {v.description}"
     if len(args) > 0 and (args[0] notin dispatcher) and args[0] notin @["-h", "-help"]:
