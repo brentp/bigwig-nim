@@ -1,6 +1,6 @@
 # bigwig for nim
 
-[![badge](https://img.shields.io/badge/docs-latest-blue.svg)](https://brentp.github.io/libbigwig-nim/bigwig.html)
+[![badge](https://img.shields.io/badge/docs-latest-blue.svg)](https://brentp.github.io/bigwig-nim/lib.html)
 
 ## Command Line
 

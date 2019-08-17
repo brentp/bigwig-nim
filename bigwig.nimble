@@ -33,10 +33,8 @@ task test, "run the tests":
 
 task docs, "Builds documentation":
   mkDir("docs"/"bigwig")
-  var file = "src/bigwig.nim"
-  exec "nim doc2 --verbosity:0 --hints:off -o:" & "docs" /../ file.changefileext("html").split("/", 1)[1] & " " & file
-  for file in listfiles("src/bigwig"):
-    if file.endswith("value.nim"): continue
-    if splitfile(file).ext == ".nim":
-      exec "nim doc2 --verbosity:0 --hints:off -o:" & "docs" /../ file.changefileext("html").split("/", 1)[1] & " " & file
+  for file in @["src/bigwig.nim", "src/bigwigpkg/lib.nim"]:
+    var f = file.changefileext("html").split("/")
+    var fn = f[f.high]
+    exec "nim doc2 --verbosity:0 --hints:off -o:" & "docs" /../ fn.changefileext("html") & " " & file
 
