@@ -1,0 +1,9 @@
+language: c
+services: docker
+before_install:
+- docker pull brentp/musl-hts-nim
+script:
+- docker run -w /test -v `pwd`:/test brentp/musl-hts-nim scripts/ci-tests.sh
+branches:
+  except:
+  - gh-pages

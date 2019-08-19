@@ -70,7 +70,7 @@ suite "bigbed suite":
 
   test "that bigbed reading works":
     var bw: BigWig
-    check true == open(bw, "tests/bigBedExample.bb")
+    check true == open(bw, "tests/ex.bb")
     check bw.header.len == 1
 
     for iv in bw.entries("chr21"):
