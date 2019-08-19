@@ -7,8 +7,23 @@ import argparse
 
 type region = tuple[chrom: string, start: int, stop: int]
 
-proc parse_region(reg:string): region =
-  if reg == "": return ("", 0, -1)
+proc looks_like_region_file(f:string): bool =
+  if ':' in f and '-' in f: return false
+  if not f.fileExists: return false
+  var fh:HTSFile
+  if not open(fh, f):
+    stderr.write_line &"[slivar] tried '{f}' as a region file but couldn't open. Trying as an actual region"
+    return false
+  defer:
+    fh.close()
+  for l in fh.lines:
+    if l[0] == '#' or l.strip().len == 0: continue
+    var toks = l.strip().split("\t")
+    if toks.len >= 3 and toks[1].isdigit and toks[2].isdigit: return true
+    stderr.write_line &"[slivar] tried '{f}' as a region file but it did not have proper format. Trying as an actual region"
+    return false
+
+proc parse_colon_region(reg: string): region {.inline.} =
   let chrom_rest = reg.split(':', maxsplit=1)
   if chrom_rest.len == 1:
     return (chrom_rest[0], 0, -1)
@@ -17,7 +32,27 @@ proc parse_region(reg:string): region =
   result.chrom = chrom_rest[0]
   result.start = max(0, parseInt(ss[0]) - 1)
   result.stop = parseInt(ss[1])
-  doAssert result.stop >= result.start, ("[bigwig] invalid region:" & reg)
+  if result.stop < result.start:
+    quit ("[bigwig] ERROR. invalid region:" & reg)
+
+proc parse_one_region(reg:string): region {.inline.} =
+  if reg == "": return ("", 0, -1)
+  let chrom_rest = reg.rsplit('\t', maxsplit=4)
+  if chrom_rest.len == 1:
+    return parse_colon_region(reg)
+  result.chrom = chrom_rest[0]
+  result.start = max(0, parseInt(chrom_rest[1]))
+  result.stop = parseInt(chrom_rest[2])
+  if result.stop < result.start:
+    quit ("[bigwig] ERROR. invalid region:" & reg)
+
+iterator parse_region(reg_or_bed:string): region {.inline.} =
+  if reg_or_bed.looks_like_region_file:
+    for l in reg_or_bed.hts_lines:
+      yield parse_one_region(l.strip(leading=false, chars={'\n', '\r'}))
+  else:
+    yield parse_one_region(reg_or_bed)
+
 
 proc from_fai(path: string): BigWigHeader =
   ## create a bigwig header from an fai (fasta index) or a genome file
@@ -25,10 +60,10 @@ proc from_fai(path: string): BigWigHeader =
     let vals = l.strip().split('\t')
     result.add((name: vals[0], length: parseInt(vals[1]), tid: result.len.uint32))
 
-proc ffloat(f:float, precision:int=5): string =
+proc ffloat(f:float, precision:int=5): string {.inline.} =
   result = format_float(f, ffDecimal, precision=precision)
   result = result.strip(leading=false, chars={'0'})
-  if result[result.high] == '.': result &= '0'
+  if result[result.high] == '.': result.setLen(result.high)
 
 proc write_region_from(ofh:File, bw:var BigWig, reg:region) =
   for iv in bw.intervals(reg.chrom, reg.start, reg.stop):
@@ -162,7 +197,7 @@ proc stats_main*() =
     option("-s", "--stat", choices= @["mean", "coverage", "min", "max", "sum", "header"], default="mean", help="statistic to output. 'header' will show the lengths, mean and coverage for each chromosome in the bigwig.")
     option("--bins", default="1", help="integer number of bins")
     arg("input", nargs=1)
-    arg("region", nargs=1, help="chromosome, or chrom:start-stop region to extract stats")
+    arg("region", nargs=1, help="BED file or regions or chromosome, or chrom:start-stop region to extract stats")
 
   var args = commandLineParams()
   if len(args) > 0 and args[0] == "stats":
@@ -203,10 +238,10 @@ proc stats_main*() =
   var bins = parseInt(opts.bins)
 
   try:
-    var region = opts.region.parse_region
-    var st = bw.stats(region.chrom, region.start, region.stop, stat=stat, nBins=bins)
-    for v in st:
-      echo ffloat(v)
+    for region in opts.region.parse_region:
+      var st = bw.stats(region.chrom, region.start, region.stop, stat=stat, nBins=bins)
+      for v in st:
+        echo &"{region.chrom}\t{region.start}\t{region.stop}\t{ffloat(v)}"
   except:
     echo "error:", getCurrentExceptionMsg()
     quit 1
@@ -256,8 +291,8 @@ proc view_main*() =
           ofh.write_region_from(bw, reg)
 
       else:
-        var region = opts.region.parse_region
-        ofh.write_region_from(bw, region)
+        for region in opts.region.parse_region:
+          ofh.write_region_from(bw, region)
 
       ofh.close
 
@@ -277,8 +312,8 @@ proc view_main*() =
           ofh.write_region_from(bw, reg, chunksize)
 
       else:
-        var region = opts.region.parse_region
-        ofh.write_region_from(bw, region, chunksize)
+        for region in opts.region.parse_region:
+          ofh.write_region_from(bw, region, chunksize)
 
       ofh.close
     bw.close

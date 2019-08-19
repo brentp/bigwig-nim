@@ -26,7 +26,11 @@ To get the mean value for a given region (in this case on chromosome 22)
 
 ```Shell
 bigwig stats --stat mean $bigwig 22:145000-155000
+# or a bed file or regions
+bigwig stats --stat mean $bigwig $bed
 ```
+
+Output is tab-delimited `chrom`, `start`, `stop`, `stat` for each row in the bed (or just once for the region).
 
 The supported stats are `mean`, `min`, `max`, `coverage`, `sum` with a special-case for the stat of `header` which
 shows the chromosomes, lengths and mean coverages for each chromosome in the bigwig file.
