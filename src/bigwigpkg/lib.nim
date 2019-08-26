@@ -1,6 +1,8 @@
 import nimbigwig/bigWig
 export bbIsBigBed, bwIsBigWig
 
+import ./carray
+export carray
 import ./version
 export version
 
@@ -15,9 +17,6 @@ type BigWig* = ref object
   stops: seq[uint32]
   values: seq[float32]
   cs: cstringArray
-
-proc c_free(p: pointer) {.
-  importc: "free", header: "<stdlib.h>".}
 
 type BigWigHeader* = seq[tuple[name: string, length: int, tid: uint32]]
 
@@ -65,6 +64,10 @@ proc open*(bw: var BigWig, path: string, mode: FileMode=fmRead, maxZooms:int=8):
 
 type CPtr[T] = ptr UncheckedArray[T]
 
+proc c_free(p: pointer) {.
+  importc: "free", header: "<stdlib.h>".}
+
+
 proc SQL*(bw: BigWig): string =
   # return any SQL associated with a bigbed file; this can be used to parse the
   # extra columns in bigbed
@@ -86,15 +89,12 @@ proc header*(bw: var BigWig): BigWigHeader =
   for i in 0..<bw.bw.cl.nKeys:
     result[i] = ($names[i], lens[i].int, i.uint32)
 
-proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1, includeNA:bool=true) =
-  ## exctract values for the given range into `values`
-  let stop = bw.get_stop(chrom, stop)
-  let ivs = bwGetValues(bw.bw, chrom, start.uint32, stop.uint32, includeNA.cint)
-  if values.len != ivs.l.int:
-    values.setLen(ivs.l.int)
-  copyMem(values[0].addr, ivs.value, sizeof(values[0]) * ivs.l.int)
-  ivs.bwDestroyOverlappingIntervals()
 
+proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1) =
+  ## fill values for the given interval.
+  let stop = bw.get_stop(chrom, stop)
+  values.setLen(stop - max(0, start))
+  bwGetOverlappingValues(bw.bw, chrom, max(0, start).uint32, stop.uint32, cast[ptr cfloat](values[0].addr))
 
 iterator entries*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): tuple[start: int, stop: int, value: cstring] =
   ## yield bigbed entries. any values is returned as a string
