@@ -7,6 +7,11 @@ import argparse
 
 type region = tuple[chrom: string, start: int, stop: int]
 
+proc isdigit2(s:string): bool {.inline.} =
+  for c in s:
+    if c < '0' or c > '9': return false
+  return true
+
 proc looks_like_region_file(f:string): bool =
   if ':' in f and '-' in f: return false
   if not f.fileExists: return false
@@ -19,7 +24,7 @@ proc looks_like_region_file(f:string): bool =
   for l in fh.lines:
     if l[0] == '#' or l.strip().len == 0: continue
     var toks = l.strip().split("\t")
-    if toks.len >= 3 and toks[1].isdigit and toks[2].isdigit: return true
+    if toks.len >= 3 and toks[1].isdigit2 and toks[2].isdigit2: return true
     stderr.write_line &"[slivar] tried '{f}' as a region file but it did not have proper format. Trying as an actual region"
     return false
 

@@ -88,9 +88,10 @@ proc header*(bw: var BigWig): BigWigHeader =
 
 proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1, includeNA:bool=true) =
   ## exctract values for the given range into `values`
-  var stop = bw.get_stop(chrom, stop)
-  var ivs = bwGetValues(bw.bw, chrom, start.uint32, stop.uint32, includeNA.cint)
-  values.setLen(ivs.l)
+  let stop = bw.get_stop(chrom, stop)
+  let ivs = bwGetValues(bw.bw, chrom, start.uint32, stop.uint32, includeNA.cint)
+  if values.len != ivs.l.int:
+    values.setLen(ivs.l.int)
   copyMem(values[0].addr, ivs.value, sizeof(values[0]) * ivs.l.int)
   ivs.bwDestroyOverlappingIntervals()
 
@@ -116,7 +117,7 @@ iterator intervals*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): t
 
   while it.data != nil:
     if it.entries != nil:
-      raise newException(ValueError, "iterator not implemented for bigbed")
+      raise newException(ValueError, "call entries to iterate over bigbed")
 
     elif it.intervals != nil:
       let starts = cast[CPtr[uint32]](it.intervals.start)

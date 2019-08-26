@@ -13,7 +13,7 @@ proc main*() =
 
   var dispatcher = {
     "view": pair(f:view_main, description:"view and convert bigwig"),
-    "stats": pair(f:stats_main, description:"extract stats (coverage a gnotate zip file for a given VCF"),
+    "stats": pair(f:stats_main, description:"extract stats from a bigwig"),
     }.toOrderedTable
 
   var args = commandLineParams()
