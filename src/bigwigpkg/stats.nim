@@ -2,6 +2,9 @@ import math
 
 type StatFun* = proc (a: float32): float64
 
+#https://stackoverflow.com/a/19045659
+template med3[T](a, b, c:T): T = max(min(a,b), min(max(a,b),c))
+
 proc qsort[T](a: var openarray[T], inl = 0, inr = -1) =
   # https://rosettacode.org/wiki/Sorting_algorithms/Quicksort#Nim
   # this is 3X faster than the algorithm.sort distributed with nim.
@@ -9,8 +12,7 @@ proc qsort[T](a: var openarray[T], inl = 0, inr = -1) =
   var l = inl
   let n = r - l + 1
   if n < 2: return
-  let p = a[l + n div 2]
-
+  let p = med3(a[l], a[r], a[l + n div 2])
   while l <= r:
     if a[l] < p:
       inc l
@@ -57,5 +59,3 @@ proc std*(a: openarray[float32]): tuple[mean:float64, std: float64] =
     S += v
     V += (v * v)
   result = (S/N, sqrt((N * V - S * S)/(N * (N - 1))))
-
-
