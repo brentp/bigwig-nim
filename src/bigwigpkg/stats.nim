@@ -1,0 +1,61 @@
+import math
+
+type StatFun* = proc (a: float32): float64
+
+proc qsort[T](a: var openarray[T], inl = 0, inr = -1) =
+  # https://rosettacode.org/wiki/Sorting_algorithms/Quicksort#Nim
+  # this is 3X faster than the algorithm.sort distributed with nim.
+  var r = if likely(inr >= 0): inr else: a.high
+  var l = inl
+  let n = r - l + 1
+  if n < 2: return
+  let p = a[l + n div 2]
+
+  while l <= r:
+    if a[l] < p:
+      inc l
+      continue
+    if a[r] > p:
+      dec r
+      continue
+    if l <= r:
+      swap a[l], a[r]
+      inc l
+      dec r
+  qsort(a, inl, r)
+  qsort(a, l, inr)
+
+proc mean*(a: openarray[float32]): float64 =
+  for v in a:
+    result += v
+  result /= a.len.float64
+
+proc fmin*(a: openarray[float32]): float64 =
+  return min(a).float64
+
+proc fmax*(a: openarray[float32]): float64 =
+  return max(a).float64
+
+proc percentiles*(a: var seq[float32], pcts: seq[float32]): seq[float64] =
+  qsort(a)
+  let L = a.high.float64
+  result = newSeqUninitialized[float64](pcts.len)
+  for i, p in pcts:
+    doAssert 0 <= p and p <= 1, "[error] pcts values to `percentiles` should be between 0 and 1."
+    result[i] = a[int(0.5 + p * L)]
+
+proc std*(a: openarray[float32]): tuple[mean:float64, std: float64] =
+  # s0 = sum(1 for x in samples)
+  # s1 = sum(x for x in samples)
+  # s2 = sum(x*x for x in samples)
+  let N: float64 = a.len.float64
+  if N == 0: return (0'f64, 0'f64)
+  var S: float64
+  var V: float64
+
+  for v in a:
+    S += v
+    V += (v * v)
+  result = (S/N, sqrt((N * V - S * S)/(N * (N - 1))))
+
+

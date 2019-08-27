@@ -90,11 +90,11 @@ proc header*(bw: var BigWig): BigWigHeader =
     result[i] = ($names[i], lens[i].int, i.uint32)
 
 
-proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1) =
+proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=0, stop:int= -1, missingVal:float=0) =
   ## fill values for the given interval.
   let stop = bw.get_stop(chrom, stop)
   values.setLen(stop - max(0, start))
-  bwGetOverlappingValues(bw.bw, chrom, max(0, start).uint32, stop.uint32, cast[ptr cfloat](values[0].addr))
+  bwGetOverlappingValues(bw.bw, chrom, max(0, start).uint32, stop.uint32, missingVal, cast[ptr cfloat](values[0].addr))
 
 iterator entries*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): tuple[start: int, stop: int, value: cstring] =
   ## yield bigbed entries. any values is returned as a string
