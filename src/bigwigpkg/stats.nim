@@ -46,6 +46,26 @@ proc percentiles*(a: var seq[float32], pcts: seq[float32]): seq[float64] =
     doAssert 0 <= p and p <= 1, "[error] pcts values to `percentiles` should be between 0 and 1."
     result[i] = a[int(0.5 + p * L)]
 
+proc ipercentiles*(a: var seq[float32], pcts: seq[float32]): seq[float64] =
+  ## calculate percentiles on values that are guaranteed to be integers.
+  var counts = newSeq[uint32](65536)
+  let L = a.high.float64
+  for v in a:
+    counts[min(v.int, counts.high)].inc
+
+  result = newSeqUninitialized[float64](pcts.len)
+  for i, p in pcts:
+    doAssert 0 <= p and p <= 1, "[error] pcts values to `percentiles` should be between 0 and 1."
+
+    var S = 0'f64
+    var j = 0
+    var stop = p * L
+    while S <= stop:
+      S += counts[j].float64
+      j.inc
+
+    result[i] = (j - 1).float64
+
 proc std*(a: openarray[float32]): tuple[mean:float64, std: float64] =
   # s0 = sum(1 for x in samples)
   # s1 = sum(x for x in samples)
