@@ -77,7 +77,7 @@ proc write_region_from(ofh:File, bw:var BigWig, reg:region) =
 
 type chunk = seq[tuple[start: int, stop:int, value:float32]]
 
-iterator chunks(bw: var BigWig, reg: region, n:int=2048): chunk =
+iterator chunks(bw: var BigWig, reg: region, n:int=1500): chunk =
   var cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
   for iv in bw.intervals(reg.chrom, reg.start, reg.stop):
     cache.add(iv)
@@ -91,7 +91,7 @@ iterator chunks(bw: var BigWig, reg: region, n:int=2048): chunk =
 proc make_interval(toks: seq[string], col: int): tuple[start: int, stop: int, value: float32] =
   return (parseInt(toks[1]), parseInt(toks[2]), parseFloat(toks[col]).float32)
 
-iterator chunks(bed_path: string, chrom: var string, n:int=2048, value_column: int= 4): chunk =
+iterator chunks(bed_path: string, chrom: var string, n:int=1500, value_column: int= 4): chunk =
   let col = value_column - 1
 
   var cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
@@ -133,6 +133,8 @@ proc looks_like_single_base(chunk: chunk): bool =
     last_stop = c.stop
     total_bases += c.stop - c.start
 
+  #echo "nskip:", nskip , "p:", nsmall.float32 / n
+
   return nsmall.float32 / n > 0.95 and nskip == 0
 
 proc looks_like_fixed_span(chunk: chunk): bool =
@@ -147,7 +149,6 @@ proc write_fixed_span(ofh: var BigWig, chunk:chunk, chrom: string, span:int) =
 
   # check for end of chrom
   let end_of_chrom = chunk.len > 1 and chunk[chunk.high].stop - chunk[chunk.high].start < span
-
 
   for c in chunk:
     for s in countup(c.start, c.stop - 1, span):

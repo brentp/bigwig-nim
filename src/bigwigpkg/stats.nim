@@ -38,14 +38,6 @@ proc fmin*(a: openarray[float32]): float64 =
 proc fmax*(a: openarray[float32]): float64 =
   return max(a).float64
 
-proc percentiles*(a: var seq[float32], pcts: seq[float32]): seq[float64] =
-  qsort(a)
-  let L = a.high.float64
-  result = newSeqUninitialized[float64](pcts.len)
-  for i, p in pcts:
-    doAssert 0 <= p and p <= 1, "[error] pcts values to `percentiles` should be between 0 and 1."
-    result[i] = a[int(0.5 + p * L)]
-
 proc ipercentiles*(a: var seq[float32], pcts: seq[float32]): seq[float64] =
   ## calculate percentiles on values that are guaranteed to be integers.
   var counts = newSeq[uint32](65536)
@@ -65,6 +57,21 @@ proc ipercentiles*(a: var seq[float32], pcts: seq[float32]): seq[float64] =
       j.inc
 
     result[i] = (j - 1).float64
+
+proc percentiles*(a: var seq[float32], pcts: seq[float32]): seq[float64] =
+  #var allints = true
+  #for v in a:
+  #  if float(int(v)) != v:
+  #    allints = false
+  #    break
+  #if allints:
+  #  return ipercentiles(a, pcts)
+  qsort(a)
+  let L = a.high.float64
+  result = newSeqUninitialized[float64](pcts.len)
+  for i, p in pcts:
+    doAssert 0 <= p and p <= 1, "[error] pcts values to `percentiles` should be between 0 and 1."
+    result[i] = a[int(0.5 + p * L)]
 
 proc std*(a: openarray[float32]): tuple[mean:float64, std: float64] =
   # s0 = sum(1 for x in samples)

@@ -170,6 +170,7 @@ proc add*[T: int|uint32|uint64|int32|int64](bw:BigWig, chrom: string, intervals:
     bw.values[i] = iv.value
 
   bw.cs[0] = chrom.cstring
+  #echo "Intervals"
   doAssert 0 == bw.bw.bwAddIntervals(bw.cs, bw.starts[0].addr, bw.stops[0].addr, bw.values[0].addr, 1'u32), "[bigwig] error adding intervals"
 
   if intervals.len > 1:
@@ -185,14 +186,11 @@ proc add*[T: int|uint32|uint64|int32|int64, U: int|uint32|uint64|int32|int64](bw
     bw.starts[i] = iv.start.uint32
     bw.values[i] = iv.value
 
-  doAssert 0 == bw.bw.bwAddIntervalSpans(chrom.cstring, bw.starts[0].addr, span.uint32, bw.values[0].addr, 1'u32), "[bigwig] error adding interval spans"
-  if intervals.len > 1:
-    doAssert 0 == bw.bw.bwAppendIntervalSpans(bw.starts[1].addr, bw.values[1].addr, intervals.high.uint32), "[bigwig] error appending interval spans"
+  doAssert 0 == bw.bw.bwAddIntervalSpans(chrom.cstring, bw.starts[0].addr, span.uint32, bw.values[0].addr, intervals.len.uint32), "[bigwig] error adding interval spans"
 
 proc add*(bw:BigWig, chrom:string, start: uint32, values: var seq[float32], step:uint32=1, span:uint32=1) =
   ## add values to the bigwig starting at start and stepping by step.
   ## this is the most efficient way (space and performance) to add to a bigwig file if your intervals match this format.
   if values.len == 0: return
-  doAssert 0 == bw.bw.bwAddIntervalSpanSteps(chrom, start, span, step, values[0].addr, 1)
-  if values.len > 1:
-    doAssert 0 == bw.bw.bwAppendIntervalSpanSteps(values[1].addr, values.high.uint32)
+  #echo "SpanStep"
+  doAssert 0 == bw.bw.bwAddIntervalSpanSteps(chrom, start, span, step, values[0].addr, values.len.uint32), "[bigwig] error adding interval span steps"
