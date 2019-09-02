@@ -17,7 +17,7 @@ proc looks_like_region_file(f:string): bool =
   if not f.fileExists: return false
   var fh:HTSFile
   if not open(fh, f):
-    stderr.write_line &"[slivar] tried '{f}' as a region file but couldn't open. Trying as an actual region"
+    stderr.write_line &"[bigwig] tried '{f}' as a region file but couldn't open. Trying as an actual region"
     return false
   defer:
     fh.close()
@@ -25,7 +25,7 @@ proc looks_like_region_file(f:string): bool =
     if l[0] == '#' or l.strip().len == 0: continue
     var toks = l.strip().split("\t")
     if toks.len >= 3 and toks[1].isdigit2 and toks[2].isdigit2: return true
-    stderr.write_line &"[slivar] tried '{f}' as a region file but it did not have proper format. Trying as an actual region"
+    stderr.write_line &"[bigwig] tried '{f}' as a region file but it did not have proper format. Trying as an actual region"
     return false
 
 proc parse_colon_region(reg: string): region {.inline.} =
@@ -77,7 +77,7 @@ proc write_region_from(ofh:File, bw:var BigWig, reg:region) =
 
 type chunk = seq[tuple[start: int, stop:int, value:float32]]
 
-iterator chunks(bw: var BigWig, reg: region, n:int=1500): chunk =
+iterator chunks(bw: var BigWig, reg: region, n:int): chunk =
   var cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
   for iv in bw.intervals(reg.chrom, reg.start, reg.stop):
     cache.add(iv)
@@ -91,7 +91,7 @@ iterator chunks(bw: var BigWig, reg: region, n:int=1500): chunk =
 proc make_interval(toks: seq[string], col: int): tuple[start: int, stop: int, value: float32] =
   return (parseInt(toks[1]), parseInt(toks[2]), parseFloat(toks[col]).float32)
 
-iterator chunks(bed_path: string, chrom: var string, n:int=1500, value_column: int= 4): chunk =
+iterator chunks(bed_path: string, chrom: var string, n:int, value_column: int= 4): chunk =
   let col = value_column - 1
 
   var cache = newSeqOfCap[tuple[start: int, stop:int, value:float32]](n)
@@ -134,8 +134,7 @@ proc looks_like_single_base(chunk: chunk): bool =
     total_bases += c.stop - c.start
 
   #echo "nskip:", nskip , "p:", nsmall.float32 / n
-
-  return nsmall.float32 / n > 0.95 and nskip == 0
+  return nsmall.float32 / n > 0.80 and nskip == 0
 
 proc looks_like_fixed_span(chunk: chunk): bool =
   if chunk.len < 2: return false
@@ -199,7 +198,7 @@ proc isBig(path: string): bool =
   return bwIsBigWig(path, nil) == 1 or bbIsBigBed(path, nil) == 1
 
 proc stats_main*() =
-  var p = newParser("bigwig view"):
+  var p = newParser("bigwig stats"):
     option("-s", "--stat", choices= @["mean", "coverage", "min", "max", "sum", "header"], default="mean", help="statistic to output. 'header' will show the lengths, mean and coverage for each chromosome in the bigwig.")
     option("--bins", default="1", help="integer number of bins")
     arg("input", nargs=1)
@@ -276,7 +275,7 @@ proc view_main*() =
     echo "[bigwig] input file is required"
     quit 2
 
-  let chunksize = 512
+  let chunksize = 4096
   if opts.input.isBig:
 
     var bw:BigWig

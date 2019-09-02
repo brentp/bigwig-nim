@@ -94,7 +94,19 @@ proc values*(bw: var BigWig, values: var seq[float32], chrom: string, start:int=
   ## fill values for the given interval.
   let stop = bw.get_stop(chrom, stop)
   values.setLen(stop - max(0, start))
-  bwGetOverlappingValues(bw.bw, chrom, max(0, start).uint32, stop.uint32, missingVal, cast[ptr cfloat](values[0].addr))
+  for i in 0..<values.len:
+    values[i] = missingVal
+  var it = bwOverlappingIntervalsIterator(bw.bw, chrom, start.uint32, stop.uint32, 2000)
+  while it.data != nil:
+    let starts = cast[CPtr[uint32]](it.intervals.start)
+    let stops = cast[CPtr[uint32]](it.intervals.end)
+    let cvals = cast[CPtr[cfloat]](it.intervals.value)
+    for i in 0..<it.intervals.l:
+      for p in max(0, int(starts[i])-start)..<min(int(stops[i])-start, values.len):
+        values[p] = cvals[i]
+    it = bwIteratorNext(it)
+  it.bwIteratorDestroy
+
 
 iterator entries*(bw: var BigWig, chrom: string, start:int=0, stop:int= -1): tuple[start: int, stop: int, value: cstring] =
   ## yield bigbed entries. any values is returned as a string

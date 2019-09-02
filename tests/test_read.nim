@@ -16,7 +16,7 @@ suite "test reading":
     check true == open(bw, "tests/test.bw")
 
     var values: seq[float32]
-    bw.values(values, "1", 0, 50)
+    bw.values(values, "1", 0, 50, missingVal=NaN)
     check values[0] ~~ 0.1
     check values[1] ~~ 0.2
     check values[2] ~~ 0.3
