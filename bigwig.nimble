@@ -1,4 +1,5 @@
-import ospaths
+
+import ospaths,strutils
 template thisModuleFile: string = instantiationInfo(fullPaths = true).filename
 
 when fileExists(thisModuleFile.parentDir / "src/bigwig.nim"):
@@ -15,7 +16,6 @@ author        = "Brent Pedersen"
 description   = "ergonomic wrapper for libbigwig"
 license       = "MIT"
 
-
 # Dependencies
 
 requires "nimbigwig", "argparse", "hts >= 0.2.20"
@@ -26,7 +26,6 @@ bin = @["bigwig"]
 
 skipDirs = @["tests"]
 
-import ospaths,strutils
 
 task test, "run the tests":
   exec "nim c --lineDir:on --debuginfo -r --threads:on tests/all"
