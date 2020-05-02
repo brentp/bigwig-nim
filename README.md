@@ -1,6 +1,6 @@
 # bigwig for nim
 
-[![Build Status](https://travis-ci.org/brentp/bigwig-nim.svg?branch=master)](https://travis-ci.org/brentp/bigwig-nim)
+[![Build Status](https://travis-ci.com/brentp/bigwig-nim.svg?branch=master)](https://travis-ci.com/brentp/bigwig-nim)
 [![badge](https://img.shields.io/badge/docs-latest-blue.svg)](https://brentp.github.io/bigwig-nim/lib.html)
 
 ## Command Line
